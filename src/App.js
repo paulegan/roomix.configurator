@@ -4,8 +4,10 @@ import { ContactShadows, Environment, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
 import { HexColorPicker } from "react-colorful"
 import { proxy, useSnapshot } from "valtio"
+import ReactSlider from "react-slider"
 
 const state = proxy({
+  numColumns: 4,
   current: "panel",
   items: {
     wall: "orange",
@@ -14,7 +16,7 @@ const state = proxy({
   },
 })
 
-function PanelRectangle({ width, height, position, woodWidth = 0.01, woodDepth = 0.005 }) {
+const PanelRectangle = ({ width, height, position, woodWidth = 0.01, woodDepth = 0.005 }) => {
   const snap = useSnapshot(state)
 
   const material = new THREE.MeshStandardMaterial({ color: snap.items.panel })
@@ -40,7 +42,7 @@ function PanelRectangle({ width, height, position, woodWidth = 0.01, woodDepth =
   )
 }
 
-function Wall({ width, height, children }) {
+const Wall = ({ width, height, children }) => {
   const ref = useRef()
   const snap = useSnapshot(state)
 
@@ -78,7 +80,7 @@ function Wall({ width, height, children }) {
   )
 }
 
-function Picker() {
+const Picker = () => {
   const snap = useSnapshot(state)
   return (
     <div>
@@ -88,8 +90,24 @@ function Picker() {
   )
 }
 
+const Slider = () => (
+  <ReactSlider
+    className="slider"
+    thumbClassName="slider-thumb"
+    trackClassName="slider-track"
+    marks
+    min={1}
+    max={8}
+    defaultValue={4}
+    renderThumb={(props, state) => <div {...props}>{state.valueNow}</div>}
+    onChange={(mark) => (state.numColumns = mark)}
+  />
+)
+
 export default function App() {
-  const numColumns = 4
+  const snap = useSnapshot(state)
+
+  const numColumns = snap.numColumns
   const wallWidth = 2
   const wallHeight = 2
 
@@ -126,6 +144,7 @@ export default function App() {
         <OrbitControls enableZoom={true} />
       </Canvas>
       <Picker />
+      <Slider />
     </>
   )
 }

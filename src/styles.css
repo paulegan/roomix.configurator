@@ -43,3 +43,45 @@ h1 {
   width: 90px !important;
   height: 90px !important;
 }
+
+.slider {
+  position: absolute !important;
+  bottom: 74px;
+  left: 70px;
+  width: 100%;
+  max-width: 500px;
+  height: 90px;
+  margin: auto;
+}
+
+.slider-thumb {
+  cursor: pointer;
+  position: absolute;
+  z-index: 100;
+  background: #ffffff;
+  border: 5px solid #3774ff;
+  border-radius: 100%;
+  display: block;
+  box-shadow: 0 0 2px 0 rgb(0 0 0 / 44%);
+}
+.slider-thumb.active {
+  background-color: grey;
+}
+.slider-track {
+  position: relative;
+  background: #ddd;
+}
+.slider-track.slider-track-0 {
+  background: #83a9ff;
+}
+.slider .slider-track {
+  top: 20px;
+  height: 4px;
+}
+.slider .slider-thumb {
+  top: 12px;
+  width: 10px;
+  outline: none;
+  height: 10px;
+  line-height: 38px;
+}
