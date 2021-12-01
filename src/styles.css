@@ -53,7 +53,6 @@ h1 {
   height: 90px;
   margin: auto;
 }
-
 .slider-thumb {
   cursor: pointer;
   position: absolute;
@@ -84,4 +83,48 @@ h1 {
   outline: none;
   height: 10px;
   line-height: 38px;
+}
+
+.options {
+  position: absolute !important;
+  top: 30px;
+  right: 160px;
+  font-size: 1.5em;
+}
+.options div {
+  height: 40px;
+}
+.options input[type="checkbox"] {
+  height: 0;
+  width: 0;
+  visibility: hidden;
+}
+.options label {
+  cursor: pointer;
+  text-indent: 65px;
+  white-space: nowrap;
+  width: 60px;
+  height: 30px;
+  background: grey;
+  display: block;
+  border-radius: 30px;
+  position: relative;
+}
+.options label:after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 26px;
+  height: 26px;
+  background: #fff;
+  border-radius: 26px;
+  transition: 0.3s;
+}
+.options input:checked + label {
+  background: #3774ff;
+}
+.options input:checked + label:after {
+  left: calc(100% - 2px);
+  transform: translateX(-100%);
 }

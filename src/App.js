@@ -1,18 +1,23 @@
 import React, { Suspense, useRef, useState, useEffect } from "react"
 import { Canvas } from "@react-three/fiber"
-import { ContactShadows, Environment, OrbitControls } from "@react-three/drei"
+import { ContactShadows, Environment, useGLTF, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
+import { CSG } from "three-csg-ts"
 import { HexColorPicker } from "react-colorful"
 import { proxy, useSnapshot } from "valtio"
 import ReactSlider from "react-slider"
 
 const state = proxy({
   numColumns: 4,
-  current: "panel",
+  showWindow: false,
+  showSocket: true,
+  showLightSwitch: true,
+  currentItem: "panel",
   items: {
     wall: "orange",
     panel: "white",
     skirting: "white",
+    window: "white",
   },
 })
 
@@ -34,15 +39,15 @@ const PanelRectangle = ({ width, height, position, woodWidth = 0.01, woodDepth =
 
   return (
     <group position={position}>
-      <primitive object={top} position={[0, height / 2 - woodWidth / 2, 0]} name="panel" />
-      <primitive object={bottom} position={[0, -(height / 2 - woodWidth / 2), 0]} name="panel" />
-      <primitive object={left} position={[-(width / 2 - woodWidth / 2), 0, 0]} name="panel" />
-      <primitive object={right} position={[width / 2 - woodWidth / 2, 0, 0]} name="panel" />
+      <primitive object={top} position={[0, height / 2 - woodWidth / 2, woodDepth / 2]} name="panel" />
+      <primitive object={bottom} position={[0, -(height / 2 - woodWidth / 2), woodDepth / 2]} name="panel" />
+      <primitive object={left} position={[-(width / 2 - woodWidth / 2), 0, woodDepth / 2]} name="panel" />
+      <primitive object={right} position={[width / 2 - woodWidth / 2, 0, woodDepth / 2]} name="panel" />
     </group>
   )
 }
 
-const Wall = ({ width, height, children }) => {
+const Wall = ({ width, height, children, holes = [] }) => {
   const ref = useRef()
   const snap = useSnapshot(state)
 
@@ -54,6 +59,19 @@ const Wall = ({ width, height, children }) => {
     document.body.style.cursor = `url('data:image/svg+xml;base64,${btoa(hovered ? cursor : auto)}'), auto`
   }, [hovered, snap.items])
 
+  const wallDepth = 0.001
+
+  const material = new THREE.MeshStandardMaterial({ color: snap.items.wall })
+  const geometry = new THREE.BoxBufferGeometry(width, height, wallDepth)
+  let wall = new THREE.Mesh(geometry, material)
+
+  holes.forEach(([x, y, w, h]) => {
+    const mesh = new THREE.Mesh(new THREE.BoxBufferGeometry(w, h, wallDepth * 10))
+    mesh.position.add(new THREE.Vector3(x, y, 0))
+    mesh.updateMatrix()
+    wall = CSG.subtract(wall, mesh)
+  })
+
   return (
     <group
       ref={ref}
@@ -62,16 +80,13 @@ const Wall = ({ width, height, children }) => {
         hover(e.object.name)
       }}
       onPointerOut={(e) => e.intersections.length === 0 && hover(null)}
-      onPointerMissed={() => (state.current = null)}
+      onPointerMissed={() => (state.currentItem = null)}
       onClick={(e) => {
         e.stopPropagation()
-        state.current = e.object.name
+        state.currentItem = e.object.name
       }}>
-      <mesh name="wall" position={[0, 0, 0]}>
-        <boxGeometry args={[width, height, 0.001]} />
-        <meshStandardMaterial color={snap.items.wall} />
-      </mesh>
-      <mesh name="skirting" position={[0, height / -2, 0]}>
+      <primitive object={wall} position={[0, 0, 0]} name="wall" />
+      <mesh name="skirting" position={[0, height / -2 + 0.05, 0.005]}>
         <boxGeometry args={[width, 0.1, 0.005]} />
         <meshStandardMaterial color={snap.items.skirting} />
       </mesh>
@@ -80,12 +95,116 @@ const Wall = ({ width, height, children }) => {
   )
 }
 
+const Window = (props) => {
+  const group = useRef()
+  const { nodes, materials, animations } = useGLTF("windows.glb")
+  //const { actions } = useAnimations(animations, group)
+  const snap = useSnapshot(state)
+  return (
+    <group ref={group} {...props} dispose={null}>
+      <group position={[0, 0, -0.05]} rotation={[-Math.PI / 2, 0, 0]} scale={0.4}>
+        <group>
+          <mesh
+            geometry={nodes.casement_bridged_frame_frame1_0.geometry}
+            material={nodes.casement_bridged_frame_frame1_0.material}
+            material-color={snap.items.window}
+            name="window"
+          />
+        </group>
+        <group rotation={[0, 0, 0]} position={[-1, 0, 0]}>
+          <mesh
+            geometry={nodes.casement_bridged_panelL_parts_0.geometry}
+            material={nodes.casement_bridged_panelL_parts_0.material}
+            name="window"
+          />
+          <mesh
+            geometry={nodes.casement_bridged_panelL_frame2_0.geometry}
+            material={materials.frame_2}
+            material-color={snap.items.window}
+            name="window"
+          />
+          <mesh
+            geometry={nodes.casement_bridged_panelL_glass_0.geometry}
+            material={nodes.casement_bridged_panelL_glass_0.material}
+            name="window"
+          />
+        </group>
+        <group rotation={[0, 0, 0.2]} position={[1, 0, 0]}>
+          <mesh
+            geometry={nodes.casement_bridged_panelR_parts_0.geometry}
+            material={nodes.casement_bridged_panelR_parts_0.material}
+            name="window"
+          />
+          <mesh
+            geometry={nodes.casement_bridged_panelR_frame2_0.geometry}
+            material={materials.frame_2}
+            material-color={snap.items.window}
+            name="window"
+          />
+          <mesh
+            geometry={nodes.casement_bridged_panelR_glass_0.geometry}
+            material={nodes.casement_bridged_panelR_glass_0.material}
+            name="window"
+          />
+        </group>
+      </group>
+    </group>
+  )
+}
+
+const WallSocket = (props) => {
+  const { nodes } = useGLTF("socket.glb")
+  return (
+    <group {...props} dispose={null}>
+      <group position={[0, 0, 0.005]} rotation={[0, Math.PI / -2, 0]} scale={0.9}>
+        <group position={[0, 0.02, -0.01]} rotation={[0, 0, -0.22]}>
+          <mesh geometry={nodes.Object_6.geometry} material={nodes.Object_6.material} name="socket" />
+          <mesh geometry={nodes.Object_7.geometry} material={nodes.Object_7.material} name="socket" />
+        </group>
+        <group position={[0, 0.02, 0.01]} rotation={[0, 0, -0.22]}>
+          <mesh geometry={nodes.Object_9.geometry} material={nodes.Object_9.material} name="socket" />
+          <mesh geometry={nodes.Object_10.geometry} material={nodes.Object_10.material} name="socket" />
+        </group>
+        <mesh geometry={nodes.Object_4.geometry} material={nodes.Object_4.material} name="socket" />
+      </group>
+    </group>
+  )
+}
+
+const LightSwitch = (props) => {
+  const { nodes, materials } = useGLTF("switch.glb")
+  return (
+    <group {...props} dispose={null}>
+      <group position={[-0.03, 0, 0]} rotation={[Math.PI / 2, 0, 0]} scale={0.02}>
+        <group position={[1.67, 0.08, 8.33]} rotation={[-Math.PI / 2, 0, 0]}>
+          <group position={[0, 0, -0.08]}>
+            <mesh geometry={nodes.Box001__Default_0.geometry} material={materials.Default} name="switch" />
+          </group>
+        </group>
+        <group position={[0.4, 0, 8.33]} rotation={[-Math.PI / 2, 0, -2.99]}>
+          <mesh geometry={nodes.Cylinder001_Default_2_0.geometry} material={nodes.Cylinder001_Default_2_0.material} name="switch" />
+        </group>
+        <group position={[2.95, 0, 8.33]} rotation={[-Math.PI / 2, 0, -0.85]}>
+          <mesh geometry={nodes.Cylinder002_Default_2_0.geometry} material={nodes.Cylinder002_Default_2_0.material} name="switch" />
+        </group>
+        <group position={[1.69, 0.12, 8.32]} rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh geometry={nodes.Box003_Default_3_0.geometry} material={materials.Default_3} name="switch" />
+        </group>
+      </group>
+    </group>
+  )
+}
+
 const Picker = () => {
   const snap = useSnapshot(state)
   return (
     <div>
-      <HexColorPicker className="picker" color={snap.items[snap.current]} onChange={(color) => (state.items[snap.current] = color)} />
-      <h1>{snap.current}</h1>
+      <HexColorPicker
+        className="picker"
+        color={snap.items[snap.currentItem]}
+        onChange={(color) => (state.items[snap.currentItem] = color)}
+      />
+      <h1>{snap.currentItem}</h1>
     </div>
   )
 }
@@ -104,7 +223,26 @@ const Slider = () => (
   />
 )
 
-export default function App() {
+const Options = () => {
+  const snap = useSnapshot(state)
+  const options = {
+    showWindow: "Window?",
+    showSocket: "Socket?",
+    showLightSwitch: "Light switch?",
+  }
+  return (
+    <div className="options">
+      {Object.entries(options).map(([name, text], i) => (
+        <div key={i}>
+          <input id={name} type="checkbox" checked={snap[name]} onChange={() => (state[name] = !snap[name])} />
+          <label htmlFor={name}>{text}</label>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const App = () => {
   const snap = useSnapshot(state)
 
   const numColumns = snap.numColumns
@@ -127,16 +265,24 @@ export default function App() {
     )
   }
 
+  const wallSocketPosition = [0.8, -0.8, 0]
+  const lightSwitchPosition = [-0.8, 0.2, 0]
+  const windowPosition = [0, 0.35, 0]
+  const windowHoles = snap.showWindow ? [[windowPosition[0], windowPosition[1], 0.8, 1]] : []
+
   return (
     <>
       <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 0, 4], fov: 50 }}>
         <ambientLight intensity={0.7} />
         <spotLight intensity={0.5} angle={0.1} penumbra={1} position={[10, 15, 10]} castShadow />
         <Suspense fallback={null}>
-          <Wall width={wallWidth} height={wallHeight}>
+          <Wall width={wallWidth} height={wallHeight} holes={windowHoles}>
             {panelRectangles.map((r, i) => (
               <PanelRectangle key={i} {...r} />
             ))}
+            {snap.showWindow && <Window position={windowPosition} />}
+            {snap.showSocket && <WallSocket position={wallSocketPosition} />}
+            {snap.showLightSwitch && <LightSwitch position={lightSwitchPosition} />}
           </Wall>
           <Environment preset="apartment" />
           <ContactShadows rotation-x={Math.PI / 2} position={[0, -0.8, 0]} opacity={0.25} width={10} height={10} blur={1.5} far={0.8} />
@@ -145,6 +291,9 @@ export default function App() {
       </Canvas>
       <Picker />
       <Slider />
+      <Options />
     </>
   )
 }
+
+export default App
